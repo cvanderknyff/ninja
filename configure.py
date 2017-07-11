@@ -518,8 +518,11 @@ n.newline()
 
 if platform.is_msvc():
     libs.append('ninja.lib')
+    libs.append('ole32.lib')
 else:
     libs.append('-lninja')
+    if platform.is_windows():
+      libs.append('-lole32')
 
 if platform.is_aix():
     libs.append('-lperfstat')
