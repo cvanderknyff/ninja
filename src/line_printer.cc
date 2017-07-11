@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #ifdef _WIN32
 #include <windows.h>
+#include <shobjidl.h>
 #else
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -40,6 +41,33 @@ LinePrinter::LinePrinter() : have_blank_line_(true), console_locked_(false) {
   console_ = GetStdHandle(STD_OUTPUT_HANDLE);
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   smart_terminal_ = GetConsoleScreenBufferInfo(console_, &csbi);
+  console_window_ = GetConsoleWindow();
+
+  taskbar_list_ = NULL;
+  if (smart_terminal_) {
+    ITaskbarList3* taskbar; // NULL if CoCreateInstance failed
+    HRESULT hr = CoCreateInstance(CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER,
+                                  IID_ITaskbarList3,
+                                  reinterpret_cast<void**>(&taskbar));
+    if (SUCCEEDED(hr))
+      hr = taskbar->HrInit();
+    if (SUCCEEDED(hr))
+      taskbar_list_ = taskbar;
+
+    if (FAILED(hr))
+      taskbar->Release(); // Destroy partly-constructed COM object on failure
+  }
+#endif
+}
+
+LinePrinter::~LinePrinter() {
+#ifdef _WIN32
+  if (taskbar_list_) {
+    ITaskbarList3* const taskbar = static_cast<ITaskbarList3*>(taskbar_list_);
+    taskbar->SetProgressState(static_cast<HWND>(console_window_),
+                              TBPF_NOPROGRESS);
+    taskbar->Release();
+  }
 #endif
 }
 
@@ -138,4 +166,31 @@ void LinePrinter::SetConsoleLocked(bool locked) {
     output_buffer_.clear();
     line_buffer_.clear();
   }
+}
+
+void LinePrinter::SetProgressMeter(int started_edges, int total_edges,
+                                   bool failures_observed) {
+#ifdef _WIN32
+  if (taskbar_list_) {
+    ITaskbarList3* const taskbar = static_cast<ITaskbarList3*>(taskbar_list_);
+    HWND const console_hwnd = static_cast<HWND>(console_window_);
+
+    TBPFLAG progress_flags;
+    if (1 == total_edges)
+      progress_flags = TBPF_INDETERMINATE; // probable generator rule
+    else if (failures_observed)
+      progress_flags = TBPF_ERROR;
+    else
+      progress_flags = TBPF_NORMAL;
+
+    HRESULT hr = taskbar->SetProgressValue(console_hwnd, started_edges, total_edges);
+    if (SUCCEEDED(hr))
+      hr = taskbar->SetProgressState(console_hwnd, progress_flags);
+  }
+#else
+  // Suppress "unused parameter" warnings
+  static_cast<void>(started_edges);
+  static_cast<void>(total_edges);
+  static_cast<void>(failures_observed);
+#endif
 }

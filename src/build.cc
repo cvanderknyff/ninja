@@ -80,7 +80,7 @@ BuildStatus::BuildStatus(const BuildConfig& config)
     : config_(config),
       start_time_millis_(GetTimeMillis()),
       started_edges_(0), finished_edges_(0), total_edges_(0),
-      progress_status_format_(NULL),
+      progress_status_format_(NULL), failures_observed_(false),
       overall_rate_(), current_rate_(config.parallelism) {
 
   // Don't do anything fancy in verbose mode.
@@ -174,6 +174,10 @@ void BuildStatus::BuildEdgeFinished(Edge* edge,
   }
 }
 
+void BuildStatus::BuildEdgeFailed() {
+  failures_observed_ = true;
+}
+
 void BuildStatus::BuildStarted() {
   overall_rate_.Restart();
   current_rate_.Restart();
@@ -185,10 +189,13 @@ void BuildStatus::BuildFinished() {
 }
 
 string BuildStatus::FormatProgressStatus(
-    const char* progress_status_format, EdgeStatus status) const {
+    const char* progress_status_format, EdgeStatus status,
+    bool& update_meter) const {
   string out;
   char buf[32];
   int percent;
+
+  update_meter = false;
   for (const char* s = progress_status_format; *s != '\0'; ++s) {
     if (*s == '%') {
       ++s;
@@ -260,6 +267,11 @@ string BuildStatus::FormatProgressStatus(
         break;
       }
 
+        // Progress meter
+      case 'm':
+        update_meter = true;
+        break;
+
       default:
         Fatal("unknown placeholder '%%%c' in $NINJA_STATUS", *s);
         return "";
@@ -277,12 +289,15 @@ void BuildStatus::PrintStatus(Edge* edge, EdgeStatus status) {
     return;
 
   bool force_full_command = config_.verbosity == BuildConfig::VERBOSE;
+  bool update_meter;
 
   string to_print = edge->GetBinding("description");
   if (to_print.empty() || force_full_command)
     to_print = edge->GetBinding("command");
 
-  to_print = FormatProgressStatus(progress_status_format_, status) + to_print;
+  to_print = FormatProgressStatus(progress_status_format_, status, update_meter) + to_print;
+  if (update_meter)
+    printer_.SetProgressMeter(started_edges_, total_edges_, failures_observed_);
 
   printer_.Print(to_print,
                  force_full_command ? LinePrinter::FULL : LinePrinter::ELIDE);
@@ -587,6 +602,7 @@ void Builder::Cleanup() {
         disk_interface_->RemoveFile(depfile);
     }
   }
+  delete status_;
 }
 
 Node* Builder::AddTarget(const string& name, string* err) {
@@ -682,6 +698,7 @@ bool Builder::Build(string* err) {
       }
 
       if (!result.success()) {
+        status_->BuildEdgeFailed();
         if (failures_allowed)
           failures_allowed--;
       }

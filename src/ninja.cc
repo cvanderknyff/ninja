@@ -22,6 +22,7 @@
 #include "getopt.h"
 #include <direct.h>
 #include <windows.h>
+#include <objbase.h>
 #elif defined(_AIX)
 #include "getopt.h"
 #include <unistd.h>
@@ -1107,7 +1108,23 @@ int ReadFlags(int* argc, char*** argv,
   return -1;
 }
 
+#ifdef _WIN32
+struct ScopedComInitializer {
+  ScopedComInitializer() {
+    CoInitialize(NULL);
+  }
+
+  ~ScopedComInitializer() {
+    CoUninitialize();
+  }
+};
+#endif
+
 int real_main(int argc, char** argv) {
+#ifdef _WIN32
+  ScopedComInitializer com_initialize;
+#endif
+
   BuildConfig config;
   Options options = {};
   options.input_file = "build.ninja";

@@ -23,6 +23,7 @@ using namespace std;
 /// if the terminal supports it.
 struct LinePrinter {
   LinePrinter();
+  ~LinePrinter();
 
   bool is_smart_terminal() const { return smart_terminal_; }
   void set_smart_terminal(bool smart) { smart_terminal_ = smart; }
@@ -41,6 +42,12 @@ struct LinePrinter {
   /// Lock or unlock the console.  Any output sent to the LinePrinter while the
   /// console is locked will not be printed until it is unlocked.
   void SetConsoleLocked(bool locked);
+
+  /// Sets the process's completion percentage.
+  /// On Windows smart terminals, this is implemented using ITaskbarList3.
+  /// On other configurations, this is a silent no-op to keep script compatibility.
+  void SetProgressMeter(int started_edges, int total_edges,
+                        bool failures_observed);
 
  private:
   /// Whether we can do fancy terminal control codes.
@@ -63,6 +70,9 @@ struct LinePrinter {
 
 #ifdef _WIN32
   void* console_;
+
+  void* console_window_;
+  void* taskbar_list_;
 #endif
 
   /// Print the given data to the console, or buffer it if it is locked.

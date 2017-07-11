@@ -201,6 +201,7 @@ struct BuildStatus {
   void BuildEdgeStarted(Edge* edge);
   void BuildEdgeFinished(Edge* edge, bool success, const string& output,
                          int* start_time, int* end_time);
+  void BuildEdgeFailed();
   void BuildStarted();
   void BuildFinished();
 
@@ -215,7 +216,7 @@ struct BuildStatus {
   /// @param progress_status_format The format of the progress status.
   /// @param status The status of the edge.
   string FormatProgressStatus(const char* progress_status_format,
-                              EdgeStatus status) const;
+                              EdgeStatus status, bool& update_meter) const;
 
  private:
   void PrintStatus(Edge* edge, EdgeStatus status);
@@ -236,6 +237,9 @@ struct BuildStatus {
 
   /// The custom progress status format to use.
   const char* progress_status_format_;
+
+  /// Whether any subcommands have failed.
+  bool failures_observed_;
 
   template<size_t S>
   void SnprintfRate(double rate, char(&buf)[S], const char* format) const {
