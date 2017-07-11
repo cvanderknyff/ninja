@@ -206,6 +206,8 @@ Several placeholders are available:
 `%c`:: Current rate of finished edges per second (average over builds
 specified by `-j` or its default)
 `%e`:: Elapsed time in seconds.  _(Available since Ninja 1.2.)_
+`%m`:: Update Windows taskbar progress if running on a smart terminal.
+Does not emit text directly.
 `%%`:: A plain `%` character.
 
 The default progress status is `"[%f/%t] "` (note the trailing space
