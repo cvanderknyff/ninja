@@ -56,7 +56,7 @@ LinePrinter::LinePrinter() : have_blank_line_(true), console_locked_(false) {
     if (SUCCEEDED(hr))
       taskbar_list_ = taskbar;
 
-    if (FAILED(hr))
+    if (FAILED(hr) && taskbar)
       taskbar->Release(); // Destroy partly-constructed COM object on failure
   }
 #endif
