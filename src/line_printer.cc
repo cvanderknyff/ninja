@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef _WIN32
+#define INITGUID 1
+#include <guiddef.h>
 #include <windows.h>
 #include <shobjidl.h>
 #else
